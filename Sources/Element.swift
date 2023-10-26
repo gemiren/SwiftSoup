@@ -953,6 +953,34 @@ open class Element: Node {
     }
 
     /**
+     * Get the (unencoded) text of all children of this element, including any newlines and spaces present in the original.
+     *
+     * @returns unencoded, un-normalized text
+     * @see #text()
+     */
+    class WholeTextNodeVisitor: NodeVisitor {
+        let accum: StringBuilder
+        init(_ accum: StringBuilder) {
+            self.accum = accum
+        }
+        public func head(_ node: Node, _ depth: Int) {
+            if let textNode = (node as? TextNode) {
+                accum.append(textNode.getWholeText())
+            }
+        }
+
+        public func tail(_ node: Node, _ depth: Int) {
+        }
+    }
+    
+    public func wholeText() throws -> String {
+        let accum: StringBuilder = StringBuilder()
+        try NodeTraversor(WholeTextNodeVisitor(accum)).traverse(self)
+        let text = accum.toString()
+        return text
+    }
+	
+    /**
      * Gets the text owned by this element only; does not get the combined text of all children.
      * <p>
      * For example, given HTML {@code <p>Hello <b>there</b> now!</p>}, {@code p.ownText()} returns {@code "Hello now!"},
