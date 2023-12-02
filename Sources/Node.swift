@@ -771,7 +771,9 @@ open class Node: Equatable, Hashable {
     ///   - lhs: A value to compare.
     ///   - rhs: Another value to compare.
     public static func ==(lhs: Node, rhs: Node) -> Bool {
-        return lhs === rhs
+        if lhs.description != rhs.description { return false }
+        if lhs.baseUri != rhs.baseUri { return false }
+        return true
     }
 
 	/// The hash value.
