@@ -771,9 +771,8 @@ open class Node: Equatable, Hashable {
     ///   - lhs: A value to compare.
     ///   - rhs: Another value to compare.
     public static func ==(lhs: Node, rhs: Node) -> Bool {
-        if lhs.description != rhs.description { return false }
-        if lhs.baseUri != rhs.baseUri { return false }
-        return true
+	// Hashable protocol based on object reference.
+        return ObjectIdentifier(lhs) == ObjectIdentifier(rhs)
     }
 
 	/// The hash value.
@@ -781,8 +780,8 @@ open class Node: Equatable, Hashable {
 	/// Hash values are not guaranteed to be equal across different executions of
 	/// your program. Do not save hash values to use during a future execution.
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(description)
-        hasher.combine(baseUri)
+	// Hashable protocol based on object reference.
+        hasher.combine(ObjectIdentifier(self))
     }
 }
 
