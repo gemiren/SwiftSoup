@@ -3,43 +3,45 @@
  Based on https://gist.github.com/kristopherjohnson/1fc55e811d944a430289
  */
 open class StringBuilder {
-    fileprivate var buffer: [String] = []
-
+    public var buffer: [UInt8] = []
+    
     /**
      Construct with initial String contents
      
      :param: string Initial value; defaults to empty string
      */
-    public init(string: String = "") {
-        if string != "" {
-            buffer.append(string)
+    public init(string: String? = nil) {
+        if let string, !string.isEmpty {
+            buffer.append(contentsOf: string.utf8)
         }
+        buffer.reserveCapacity(1024)
     }
-
+    
     public init(_ size: Int) {
-        self.buffer = Array()
+        buffer = Array()
+        buffer.reserveCapacity(size)
     }
-
+    
     /**
      Return the String object
      
      :return: String
      */
     open func toString() -> String {
-        return buffer.joined()
+        return String(decoding: buffer, as: UTF8.self)
     }
-
+    
     /**
      Return the current length of the String object
      */
     open var xlength: Int {
-        return buffer.map { $0.count }.reduce(0, +)
+        return buffer.count
     }
     
     open var isEmpty: Bool {
         return buffer.isEmpty
     }
-
+    
     /**
      Append a String to the object
      
@@ -47,30 +49,65 @@ open class StringBuilder {
      
      :return: reference to this StringBuilder instance
      */
-    open func append(_ string: String) {
-        buffer.append(string)
+    @inline(__always)
+    @discardableResult
+    open func append(_ string: String) -> StringBuilder {
+        buffer.append(contentsOf: string.utf8)
+        return self
     }
-
-    open func appendCodePoint(_ chr: Character) {
-        buffer.append(String(chr))
+    
+    @inline(__always)
+    open func append(_ chr: Character) {
+        append(String(chr))
     }
-
+    
+    @inline(__always)
     open func appendCodePoints(_ chr: [Character]) {
-        buffer.append(String(chr))
+        append(String(chr))
     }
-
+    
+    @inline(__always)
     open func appendCodePoint(_ ch: Int) {
-        buffer.append(String(UnicodeScalar(ch)!))
+        appendCodePoint(UnicodeScalar(ch)!)
     }
-
+    
+    @inlinable
     open func appendCodePoint(_ ch: UnicodeScalar) {
-        buffer.append(String(ch))
+        let val = ch.value
+        if val < 0x80 {
+            // 1-byte ASCII
+            buffer.append(UInt8(val))
+        } else if val < 0x800 {
+            // 2-byte sequence
+            buffer.append(contentsOf: [
+                UInt8(0xC0 | (val >> 6)),
+                UInt8(0x80 | (val & 0x3F))
+            ])
+        } else if val < 0x10000 {
+            // 3-byte sequence
+            buffer.append(contentsOf: [
+                UInt8(0xE0 | (val >> 12)),
+                UInt8(0x80 | ((val >> 6) & 0x3F)),
+                UInt8(0x80 | (val & 0x3F))
+            ])
+        } else {
+            // 4-byte sequence
+            buffer.append(contentsOf: [
+                UInt8(0xF0 | (val >> 18)),
+                UInt8(0x80 | ((val >> 12) & 0x3F)),
+                UInt8(0x80 | ((val >> 6) & 0x3F)),
+                UInt8(0x80 | (val & 0x3F))
+            ])
+        }
     }
-
+    
+    @inlinable
     open func appendCodePoints(_ chr: [UnicodeScalar]) {
-        buffer.append(String(String.UnicodeScalarView(chr)))
+        for chr in chr {
+            appendCodePoint(chr)
+        }
     }
-
+    
     /**
      Append a Printable to the object
      
@@ -78,18 +115,40 @@ open class StringBuilder {
      
      :return: reference to this StringBuilder instance
      */
+//    @discardableResult
+//    open func append<T: CustomStringConvertible>(_ value: T) -> StringBuilder {
+//        append(value.description)
+//        return self
+//    }
+    
+    @inlinable
     @discardableResult
-    open func append<T: CustomStringConvertible>(_ value: T) -> StringBuilder {
-        buffer.append(value.description)
+    open func append(_ value: ArraySlice<UInt8>) -> StringBuilder {
+        buffer.append(contentsOf: value)
+        return self
+    }
+    
+    @inlinable
+    @discardableResult
+    open func append(_ value: [UInt8]) -> StringBuilder {
+        buffer.append(contentsOf: value)
+        return self
+    }
+    
+    @inlinable
+    @discardableResult
+    open func append(_ value: UInt8) -> StringBuilder {
+        buffer.append(value)
         return self
     }
 
+    @inlinable
     @discardableResult
     open func append(_ value: UnicodeScalar) -> StringBuilder {
-        buffer.append(value.description)
+        appendCodePoint(value)
         return self
     }
-
+    
     /**
      Append a String and a newline to the object
      
@@ -99,11 +158,11 @@ open class StringBuilder {
      */
     @discardableResult
     open func appendLine(_ string: String) -> StringBuilder {
-        buffer.append(string)
-        buffer.append("\n")
+        append(string)
+        append("\n")
         return self
     }
-
+    
     /**
      Append a Printable and a newline to the object
      
@@ -113,17 +172,18 @@ open class StringBuilder {
      */
     @discardableResult
     open func appendLine<T: CustomStringConvertible>(_ value: T) -> StringBuilder {
-        buffer.append(value.description)
-        buffer.append("\n")
+        append(value.description)
+        append("\n")
         return self
     }
-
+    
     /**
      Reset the object to an empty string
      
      :return: reference to this StringBuilder instance
      */
     @discardableResult
+    @inlinable
     open func clear() -> StringBuilder {
         buffer.removeAll(keepingCapacity: true)
         return self
@@ -136,6 +196,7 @@ open class StringBuilder {
  :param: lhs StringBuilder
  :param: rhs String
  */
+@inlinable
 public func += (lhs: StringBuilder, rhs: String) {
     lhs.append(rhs)
 }
@@ -146,6 +207,7 @@ public func += (lhs: StringBuilder, rhs: String) {
  :param: lhs Printable
  :param: rhs String
  */
+@inlinable
 public func += <T: CustomStringConvertible>(lhs: StringBuilder, rhs: T) {
     lhs.append(rhs.description)
 }
@@ -158,6 +220,7 @@ public func += <T: CustomStringConvertible>(lhs: StringBuilder, rhs: T) {
  
  :result StringBuilder
  */
+@inlinable
 public func +(lhs: StringBuilder, rhs: StringBuilder) -> StringBuilder {
     return StringBuilder(string: lhs.toString() + rhs.toString())
 }

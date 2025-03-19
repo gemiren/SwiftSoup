@@ -3,7 +3,6 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 12/11/16.
-//  Copyright © 2016 Nabil Chatbi. All rights reserved.
 //
 
 import XCTest
@@ -20,7 +19,7 @@ class QueryParserTest: XCTestCase {
         #endif
     }
 
-	func testOrGetsCorrectPrecedence()throws {
+	func testOrGetsCorrectPrecedence() throws {
 		// tests that a selector "a b, c d, e f" evals to (a AND b) OR (c AND d) OR (e AND f)"
 		// top level or, three child ands
 		let eval: Evaluator = try QueryParser.parse("a b, c d, e f")
@@ -40,7 +39,7 @@ class QueryParserTest: XCTestCase {
 		}
 	}
 
-	func testParsesMultiCorrectly()throws {
+	func testParsesMultiCorrectly() throws {
 		let eval: Evaluator = try QueryParser.parse(".foo > ol, ol > li + li")
         guard let orEvaluator: CombiningEvaluator.Or = eval as? CombiningEvaluator.Or else {
             XCTAssertTrue(false)

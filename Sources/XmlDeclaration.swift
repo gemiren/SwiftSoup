@@ -3,7 +3,6 @@
 //  SwifSoup
 //
 //  Created by Nabil Chatbi on 29/09/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
@@ -12,7 +11,7 @@ import Foundation
  An XML Declaration.
   */
 public class XmlDeclaration: Node {
-    private let _name: String
+    private let _name: [UInt8]
     private let isProcessingInstruction: Bool // <! if true, <? if false, declaration (and last data char should be ?)
 
     /**
@@ -21,12 +20,20 @@ public class XmlDeclaration: Node {
      @param baseUri base uri
      @param isProcessingInstruction is processing instruction
      */
-    public init(_ name: String, _ baseUri: String, _ isProcessingInstruction: Bool) {
+    public init(_ name: [UInt8], _ baseUri: [UInt8], _ isProcessingInstruction: Bool) {
         self._name = name
         self.isProcessingInstruction = isProcessingInstruction
         super.init(baseUri)
     }
+    
+    public convenience init(_ name: String, _ baseUri: String, _ isProcessingInstruction: Bool) {
+        self.init(name.utf8Array, baseUri.utf8Array, isProcessingInstruction)
+    }
 
+    public override func nodeNameUTF8() -> [UInt8] {
+        return nodeName().utf8Array
+    }
+    
     public override func nodeName() -> String {
         return "#declaration"
     }
@@ -36,7 +43,7 @@ public class XmlDeclaration: Node {
      * @return name of this declaration.
      */
     public func name() -> String {
-        return _name
+        return String(decoding: _name, as: UTF8.self)
     }
 
     /**
@@ -49,7 +56,7 @@ public class XmlDeclaration: Node {
 
     override func outerHtmlHead(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {
         accum
-            .append("<")
+            .append(UTF8Arrays.tagStart)
             .append(isProcessingInstruction ? "!" : "?")
             .append(_name)
         do {
@@ -57,7 +64,7 @@ public class XmlDeclaration: Node {
         } catch {}
         accum
             .append(isProcessingInstruction ? "!" : "?")
-            .append(">")
+            .append(UTF8Arrays.tagEnd)
     }
 
     override func outerHtmlTail(_ accum: StringBuilder, _ depth: Int, _ out: OutputSettings) {}

@@ -3,12 +3,11 @@
 //  SwifSoup
 //
 //  Created by Nabil Chatbi on 02/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
 
-struct Validate {
+public struct Validate {
 
     /**
      * Validates that the object is not null
@@ -98,11 +97,15 @@ struct Validate {
      * Validates that the string is not empty
      * @param string the string to test
      */
-    public static func notEmpty(string: String?) throws {
-        if (string == nil || string?.count == 0) {
+    public static func notEmpty<T: Collection>(string: T?) throws where T.Element == UInt8 {
+        if string?.isEmpty ?? true {
             throw Exception.Error(type: ExceptionType.IllegalArgumentException, Message: "String must not be empty")
         }
 
+    }
+    
+    public static func notEmpty(string: String?) throws {
+        try notEmpty(string: string?.utf8Array)
     }
 
     /**
@@ -110,10 +113,14 @@ struct Validate {
      * @param string the string to test
      * @param msg message to output if validation fails
      */
-   public static func notEmpty(string: String?, msg: String ) throws {
-        if (string == nil || string?.count == 0) {
+   public static func notEmpty(string: [UInt8]?, msg: String ) throws {
+       if string?.isEmpty ?? true {
             throw Exception.Error(type: ExceptionType.IllegalArgumentException, Message: msg)
         }
+    }
+    
+    public static func notEmpty(string: String?, msg: String) throws {
+        try notEmpty(string: string?.utf8Array, msg: msg)
     }
 
     /**

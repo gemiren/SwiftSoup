@@ -3,7 +3,6 @@
 //  SwifSoupTests
 //
 //  Created by Nabil Chatbi on 20/04/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import XCTest
@@ -94,7 +93,7 @@ class StringUtilTest: XCTestCase {
         XCTAssertEqual("hello there", StringUtil.normaliseWhitespace("hello\nthere"))
     }
 
-    func testNormaliseWhiteSpaceHandlesHighSurrogates()throws {
+    func testNormaliseWhiteSpaceHandlesHighSurrogates() throws {
         let test71540chars = "\\u{d869}\\u{deb2}\\u{304b}\\u{309a}  1"
         let test71540charsExpectedSingleWhitespace = "\\u{d869}\\u{deb2}\\u{304b}\\u{309a} 1"
 

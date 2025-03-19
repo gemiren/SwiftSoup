@@ -3,7 +3,6 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 13/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
@@ -66,8 +65,13 @@ open class TokenQueue {
      * @return true if the next characters match.
      */
     open func matches(_ seq: String) -> Bool {
-        return queue.regionMatches(ignoreCase: true, selfOffset: pos,
-                                   other: seq, otherOffset: 0, targetLength: seq.count)
+        return queue.regionMatches(
+            ignoreCase: true,
+            selfOffset: pos,
+            other: seq,
+            otherOffset: 0,
+            targetLength: seq.count
+        )
     }
 
     /**
@@ -92,6 +96,7 @@ open class TokenQueue {
         }
         return false
     }
+
     open func matchesAny(_ seq: String...) -> Bool {
         return matchesAny(seq)
     }
@@ -397,7 +402,7 @@ open class TokenQueue {
             pos+=1
         }
 
-        return queue.substring(start, pos-start)
+        return queue.substring(start, pos - start)
     }
 
     /**

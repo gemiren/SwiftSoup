@@ -3,7 +3,6 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 12/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import XCTest
@@ -60,6 +59,14 @@ class CharacterReaderTest: XCTestCase {
         // XCTAssertTrue(r.isEmpty())
         // XCTAssertEqual(CharacterReader.EOF, r.current())
     }
+    
+    func testMultibyteUnconsume() {
+        let r = CharacterReader("π>")
+        XCTAssertEqual("π", r.consume())
+        XCTAssertEqual(">", r.current())
+        r.unconsume()
+        XCTAssertEqual("π", r.current())
+    }
 
     func testMark() {
         let r = CharacterReader("one")
@@ -86,7 +93,7 @@ class CharacterReaderTest: XCTestCase {
 
         XCTAssertEqual(nil, r.nextIndexOf("x"))
         XCTAssertEqual(input.index(input.startIndex, offsetBy: 3), r.nextIndexOf("h"))
-        let pull = r.consumeTo("h")
+        let pull = String(decoding: r.consumeTo("h"), as: UTF8.self)
         XCTAssertEqual("bla", pull)
         XCTAssertEqual("h", r.consume())
         XCTAssertEqual(input.index(input.startIndex, offsetBy: 6), r.nextIndexOf("l"))
@@ -138,29 +145,35 @@ class CharacterReaderTest: XCTestCase {
     }
 
     func testConsumeToAny() {
-        let r = CharacterReader("One &bar; qux")
-        XCTAssertEqual("One ", r.consumeToAny("&", ";"))
+        let r = CharacterReader("One 二 &bar; qux 三")
+        XCTAssertEqual("One 二 ", r.consumeToAny(ParsingStrings(["&", ";"])))
         XCTAssertTrue(r.matches("&"))
         XCTAssertTrue(r.matches("&bar;"))
         XCTAssertEqual("&", r.consume())
-        XCTAssertEqual("bar", r.consumeToAny("&", ";"))
-        XCTAssertEqual(";", r.consume())
-        XCTAssertEqual(" qux", r.consumeToAny("&", ";"))
+        XCTAssertEqual("bar", r.consumeToAny(ParsingStrings(["&", ";"])))
+        XCTAssertEqual(";", String(decoding: Array(r.consume().utf8), as: UTF8.self))
+        XCTAssertEqual(" qux 三", r.consumeToAny(ParsingStrings(["&", ";"])))
+    }
+    
+    func testConsumeToAnyMultibyte() {
+        let r = CharacterReader("若い\"")
+        let value: ArraySlice<UInt8> = r.consumeToAny(ParsingStrings(["\"", UnicodeScalar.Ampersand, "\u{0000}"]))
+        XCTAssertEqual(String(decoding: value, as: UTF8.self), "若い")
     }
 
     func testConsumeLetterSequence() {
         let r = CharacterReader("One &bar; qux")
-        XCTAssertEqual("One", r.consumeLetterSequence())
+        XCTAssertEqual("One", String(decoding: r.consumeLetterSequence(), as: UTF8.self))
         XCTAssertEqual(" &", r.consumeTo("bar;"))
-        XCTAssertEqual("bar", r.consumeLetterSequence())
-        XCTAssertEqual("; qux", r.consumeToEnd())
+        XCTAssertEqual("bar", String(decoding: r.consumeLetterSequence(), as: UTF8.self))
+       XCTAssertEqual("; qux", r.consumeToEnd())
     }
 
     func testConsumeLetterThenDigitSequence() {
         let r = CharacterReader("One12 Two &bar; qux")
-        XCTAssertEqual("One12", r.consumeLetterThenDigitSequence())
+        XCTAssertEqual("One12", String(decoding: r.consumeLetterThenDigitSequence(), as: UTF8.self))
         XCTAssertEqual(" ", r.consume())
-        XCTAssertEqual("Two", r.consumeLetterThenDigitSequence())
+        XCTAssertEqual("Two", String(decoding: r.consumeLetterThenDigitSequence(), as: UTF8.self))
         XCTAssertEqual(" &bar; qux", r.consumeToEnd())
     }
 
@@ -208,7 +221,7 @@ class CharacterReaderTest: XCTestCase {
         //let scan = [" ", "\n", "\t"]
         let r = CharacterReader("One\nTwo\tThree")
         XCTAssertFalse(r.matchesAny(" ", "\n", "\t"))
-        XCTAssertEqual("One", r.consumeToAny(" ", "\n", "\t"))
+        XCTAssertEqual("One", r.consumeToAny(ParsingStrings([" ", "\n", "\t"])))
         XCTAssertTrue(r.matchesAny(" ", "\n", "\t"))
         XCTAssertEqual("\n", r.consume())
         XCTAssertFalse(r.matchesAny(" ", "\n", "\t"))
@@ -252,12 +265,72 @@ class CharacterReaderTest: XCTestCase {
 //        XCTAssertTrue(r.rangeEquals(18, 5, "CHOKE"))
 //        XCTAssertFalse(r.rangeEquals(18, 5, "CHIKE"))
     }
+    
+    func testJavaScriptParsingHangRegression() throws {
+        let expectation = XCTestExpectation(description: "SwiftSoup parse should complete")
+        
+        DispatchQueue.global().async {
+            do {
+                let html = """
+                    <!DOCTYPE html>
+                    <script>
+                    <!--//-->
+                    &
+                    </script>
+                """
+                _ = try SwiftSoup.parse(html)
+                expectation.fulfill() // Fulfill the expectation if parse completes
+            } catch {
+                XCTFail("Parsing failed with error: \(error)")
+                expectation.fulfill() // Fulfill the expectation to not block the waiter in case of error
+            }
+        }
+        
+        // Wait for the expectation with a timeout of 3 seconds
+        let result = XCTWaiter().wait(for: [expectation], timeout: 3.0)
+        
+        switch result {
+        case .completed:
+            // Parse completed within the timeout, the test passes
+            break
+        case .timedOut:
+            // Parse did not complete within the timeout, the test fails
+            XCTFail("Parsing took too long; hang detected")
+        default:
+            break
+        }
+    }
+    
+    func testURLCrashRegression() throws {
+        let html = """
+            <!DOCTYPE html>
+            <body>
+                <a href="https://secure.imagemaker360.com/Viewer/95.asp?id=181293idxIDX&Referer=&referefull="></a>
+            </body>
+        """
+        _ = try SwiftSoup.parse(html)
+    }
 
+    func testMultibyteConsume() throws {
+        let r = CharacterReader("-本文-")
+        XCTAssertEqual(0, r.getPos())
+        XCTAssertEqual("-", r.consume())
+        XCTAssertEqual(1, r.getPos())
+        XCTAssertEqual("本", r.current())
+        XCTAssertEqual("本", r.consume())
+        XCTAssertEqual(4, r.getPos())
+        XCTAssertEqual("文", r.current())
+        XCTAssertEqual("文", r.consume())
+        XCTAssertEqual(7, r.getPos())
+        XCTAssertEqual("-", r.consume())
+    }
+    
 	static var allTests = {
 		return [
             ("testLinuxTestSuiteIncludesAllTests", testLinuxTestSuiteIncludesAllTests),
             ("testConsume", testConsume),
 			("testUnconsume", testUnconsume),
+            ("testMultibyteUnconsume", testMultibyteUnconsume),
 			("testMark", testMark),
 			("testConsumeToEnd", testConsumeToEnd),
 			("testNextIndexOfChar", testNextIndexOfChar),
@@ -267,6 +340,7 @@ class CharacterReaderTest: XCTestCase {
 			("testConsumeToString", testConsumeToString),
 			("testAdvance", testAdvance),
 			("testConsumeToAny", testConsumeToAny),
+            ("testConsumeToAnyMultibyte", testConsumeToAnyMultibyte),
 			("testConsumeLetterSequence", testConsumeLetterSequence),
 			("testConsumeLetterThenDigitSequence", testConsumeLetterThenDigitSequence),
 			("testMatches", testMatches),
@@ -274,8 +348,11 @@ class CharacterReaderTest: XCTestCase {
 			("testContainsIgnoreCase", testContainsIgnoreCase),
 			("testMatchesAny", testMatchesAny),
 			("testCachesStrings", testCachesStrings),
-			("testRangeEquals", testRangeEquals)
-			]
+			("testRangeEquals", testRangeEquals),
+            ("testJavaScriptParsingHangRegression", testJavaScriptParsingHangRegression),
+            ("testURLCrashRegression", testURLCrashRegression),
+            ("testMultibyteConsume", testMultibyteConsume),
+        ]
 	}()
 
 }

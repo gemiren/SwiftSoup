@@ -3,7 +3,6 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 22/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
@@ -34,20 +33,27 @@ open class Evaluator {
      * Evaluator for tag name
      */
     public class Tag: Evaluator {
-        private let tagName: String
-        private let tagNameNormal: String
+        private let tagName: [UInt8]
+        public let tagNameNormal: [UInt8]
 
         public init(_ tagName: String) {
+            let utf8TagName = tagName.utf8Array
+            self.tagName = utf8TagName
+            self.tagNameNormal = utf8TagName.lowercased()
+        }
+        
+        public init(_ tagName: [UInt8]) {
             self.tagName = tagName
             self.tagNameNormal = tagName.lowercased()
         }
 
-        open override func matches(_ root: Element, _ element: Element)throws->Bool {
-            return element.tagNameNormal() == tagNameNormal
+        @inlinable
+        open override func matches(_ root: Element, _ element: Element) throws -> Bool {
+            return element.tagNameNormalUTF8() == tagNameNormal
         }
 
         open override func toString() -> String {
-            return String(tagName)
+            return String(decoding: tagName, as: UTF8.self)
         }
     }
 
@@ -134,16 +140,16 @@ open class Evaluator {
      * Evaluator for attribute name prefix matching
      */
     public final class AttributeStarting: Evaluator {
-        private let keyPrefix: String
+        private let keyPrefix: [UInt8]
 
-        public init(_ keyPrefix: String)throws {
+        public init(_ keyPrefix: [UInt8]) throws {
             try Validate.notEmpty(string: keyPrefix)
             self.keyPrefix = keyPrefix.lowercased()
         }
 
-        public override func matches(_ root: Element, _ element: Element)throws->Bool {
+        public override func matches(_ root: Element, _ element: Element) throws -> Bool {
             if let values = element.getAttributes() {
-                for attribute in values where attribute.getKey().lowercased().hasPrefix(keyPrefix) {
+                for attribute in values where attribute.getKeyUTF8().lowercased().hasPrefix(keyPrefix) {
                     return true
                 }
             }
@@ -151,7 +157,7 @@ open class Evaluator {
         }
 
         public override func toString() -> String {
-            return "[^\(keyPrefix)]"
+            return "[^\(String(decoding: keyPrefix, as: UTF8.self))]"
         }
 
     }

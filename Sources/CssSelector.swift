@@ -3,7 +3,6 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 21/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
@@ -81,7 +80,7 @@ open class CssSelector {
 
     private init(_ query: String, _ root: Element)throws {
         let query = query.trim()
-        try Validate.notEmpty(string: query)
+        try Validate.notEmpty(string: query.utf8Array)
 
         self.evaluator = try QueryParser.parse(query)
 
@@ -124,7 +123,7 @@ open class CssSelector {
      * @return matching elements, empty if none
      */
     public static func select(_ query: String, _ roots: Array<Element>)throws->Elements {
-        try Validate.notEmpty(string: query)
+        try Validate.notEmpty(string: query.utf8Array)
         let evaluator: Evaluator = try QueryParser.parse(query)
         var elements: Array<Element> = Array<Element>()
         var seenElements: Array<Element> = Array<Element>()

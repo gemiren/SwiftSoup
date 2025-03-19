@@ -3,7 +3,6 @@
 //  SwifSoup
 //
 //  Created by Nabil Chatbi on 29/09/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
@@ -22,8 +21,18 @@ public class FormElement: Element {
      * @param baseUri    the base URI
      * @param attributes initial attributes
      */
-    public override init(_ tag: Tag, _ baseUri: String, _ attributes: Attributes) {
+    public override init(_ tag: Tag, _ baseUri: [UInt8], _ attributes: Attributes) {
         super.init(tag, baseUri, attributes)
+    }
+    
+    /**
+     * Create a new, standalone form element.
+     *
+     * @param tag        tag of this element
+     * @param baseUri    the base URI
+     */
+    public override init(_ tag: Tag, _ baseUri: [UInt8]) {
+        super.init(tag, baseUri)
     }
 
     /**

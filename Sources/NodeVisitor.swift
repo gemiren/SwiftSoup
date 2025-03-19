@@ -3,7 +3,6 @@
 //  SwiftSoup
 //
 //  Created by Nabil Chatbi on 16/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
@@ -24,7 +23,7 @@ public protocol NodeVisitor {
      * @param depth the depth of the node, relative to the root node. E.g., the root node has depth 0, and a child node
      * of that will have depth 1.
      */
-    func head(_ node: Node, _ depth: Int)throws
+    func head(_ node: Node, _ depth: Int) throws
 
     /**
      * Callback for when a node is last visited, after all of its descendants have been visited. {@code tail} can safely call {@code node.remove()}.
@@ -33,5 +32,5 @@ public protocol NodeVisitor {
      * @param depth the depth of the node, relative to the root node. E.g., the root node has depth 0, and a child node
      * of that will have depth 1.
      */
-    func tail(_ node: Node, _ depth: Int)throws
+    func tail(_ node: Node, _ depth: Int) throws
 }

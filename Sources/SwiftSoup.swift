@@ -3,7 +3,6 @@
 //  Jsoup
 //
 //  Created by Nabil Chatbi on 29/09/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
@@ -16,7 +15,7 @@ import Foundation
 	before the HTML declares a {@code <base href>} tag.
 	@return sane HTML
 	*/
-	public  func parse(_ html: String, _ baseUri: String)throws->Document {
+	public  func parse(_ html: String, _ baseUri: String) throws -> Document {
 		return try Parser.parse(html, baseUri)
 	}
 
@@ -30,7 +29,7 @@ import Foundation
 	@param parser alternate {@link Parser#xmlParser() parser} to use.
 	@return sane HTML
 	*/
-	public  func parse(_ html: String, _ baseUri: String, _ parser: Parser)throws->Document {
+	public  func parse(_ html: String, _ baseUri: String, _ parser: Parser) throws -> Document {
 		return try parser.parseInput(html, baseUri)
 	}
 
@@ -43,7 +42,7 @@ import Foundation
 	
 	@see #parse(String, String)
 	*/
-	public  func parse(_ html: String)throws->Document {
+	public  func parse(_ html: String) throws -> Document {
 		return try Parser.parse(html, "")
 	}
 
@@ -148,7 +147,7 @@ import Foundation
 	
 	@see Document#body()
 	*/
-	public  func parseBodyFragment(_ bodyHtml: String)throws->Document {
+	public  func parseBodyFragment(_ bodyHtml: String) throws -> Document {
 		return try Parser.parseBodyFragment(bodyHtml, "")
 	}
 
@@ -186,7 +185,7 @@ import Foundation
 	
 	@see Cleaner#clean(Document)
 	*/
-	public  func clean(_ bodyHtml: String, _ baseUri: String, _ whitelist: Whitelist)throws->String? {
+	public  func clean(_ bodyHtml: String, _ baseUri: String, _ whitelist: Whitelist) throws -> String? {
 		let dirty: Document = try parseBodyFragment(bodyHtml, baseUri)
 		let cleaner: Cleaner = Cleaner(whitelist)
 		let clean: Document = try cleaner.clean(dirty)
@@ -203,7 +202,7 @@ import Foundation
 	
 	@see Cleaner#clean(Document)
 	*/
-	public  func clean(_ bodyHtml: String, _ whitelist: Whitelist)throws->String? {
+	public  func clean(_ bodyHtml: String, _ whitelist: Whitelist) throws -> String? {
 		return try SwiftSoup.clean(bodyHtml, "", whitelist)
 	}
 

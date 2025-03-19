@@ -3,17 +3,218 @@
 //  SwifSoup
 //
 //  Created by Nabil Chatbi on 21/04/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
 
-extension String {
+extension UInt8 {
+    /// Checks if the byte represents a whitespace character:
+    /// Space (0x20), Tab (0x09), Newline (0x0A), Carriage Return (0x0D),
+    /// Form Feed (0x0C), or Vertical Tab (0x0B).
+    @inline(__always)
+    var isWhitespace: Bool {
+        switch self {
+        case 0x20, // Space
+            0x09, // Tab (\t)
+            0x0A, // Newline (\n)
+            0x0D, // Carriage Return (\r)
+            0x0C, // Form Feed (\f)
+            0x0B: // Vertical Tab (\v)
+            return true
+        default:
+            return false
+        }
+    }
+}
 
+extension ArraySlice where Element == UInt8 {
+    @inline(__always)
+    public func lowercased() -> ArraySlice<UInt8> {
+        // Check if any element needs lowercasing
+        guard self.contains(where: { $0 >= 65 && $0 <= 90 }) else { return self }
+        // Only allocate a new array if necessary
+        var result = self
+        for i in result.indices {
+            let b = result[i]
+            if b >= 65 && b <= 90 {
+                result[i] = b + 32
+            }
+        }
+        return result
+    }
+}
+
+// TODO: Use @retroactive once supported on Ubuntu (?)
+//extension Array: @retroactive Comparable where Element == UInt8 {
+extension Array: Comparable where Element == UInt8 {
+    @inline(__always)
+    public func lowercased() -> [UInt8] {
+        // Check if any element needs lowercasing
+        guard self.contains(where: { $0 >= 65 && $0 <= 90 }) else { return self }
+        // Only allocate a new array if necessary
+        var result = self
+        for i in result.indices {
+            let b = result[i]
+            if b >= 65 && b <= 90 {
+                result[i] = b + 32
+            }
+        }
+        return result
+    }
+    
+    func uppercased() -> [UInt8] {
+        map { $0 >= 97 && $0 <= 122 ? $0 - 32 : $0 }
+    }
+     
+    func unicodeScalars() -> [UnicodeScalar] {
+        var scalars: [UnicodeScalar] = []
+        var decoder = UTF8()
+        var iterator = makeIterator()
+        
+        while true {
+            switch decoder.decode(&iterator) {
+            case .scalarValue(let scalar):
+                scalars.append(scalar)
+            case .emptyInput:
+                return scalars
+            case .error:
+                // Skip invalid byte
+                _ = iterator.next()
+            }
+        }
+    }
+    
+    func hasPrefix(_ prefix: [UInt8]) -> Bool {
+        guard self.count >= prefix.count else { return false }
+        return zip(self, prefix).allSatisfy { $0 == $1 }
+    }
+    
+    public static func < (lhs: [UInt8], rhs: [UInt8]) -> Bool {
+        for (byte1, byte2) in zip(lhs, rhs) {
+            if byte1 < byte2 {
+                return true
+            } else if byte1 > byte2 {
+                return false
+            }
+        }
+        return lhs.count < rhs.count
+    }
+    
+    func equals(_ string: String) -> Bool {
+        return self == string.utf8Array
+    }
+    
+    func equals(_ string: [UInt8]) -> Bool {
+        return self == string
+    }
+    
+    public func trim() -> [UInt8] {
+        // Helper function to check if a byte is whitespace
+        func isWhitespace(_ byte: UInt8) -> Bool {
+            return byte == 0x20 || (byte >= 0x09 && byte <= 0x0D)
+        }
+        
+        var start = startIndex
+        var end = endIndex
+        var trimmed = false
+        
+        while start < end, isWhitespace(self[start]) {
+            formIndex(after: &start)
+            trimmed = true
+        }
+        
+        while start < end, isWhitespace(self[index(before: end)]) {
+            formIndex(before: &end)
+            trimmed = true
+        }
+        
+        return trimmed ? Array(self[start..<end]) : self
+    }
+    
+    func substring(_ beginPrefix: Int) -> [UInt8] {
+        return Array(self.dropFirst(beginPrefix))
+    }
+    
+    func equalsIgnoreCase(string: [UInt8]?) -> Bool {
+        guard let string else { return false }
+        guard self.count == string.count else { return false }
+        
+        for (byte1, byte2) in zip(self.lazy, string.lazy) {
+            // Convert ASCII uppercase to lowercase by adding 32
+            let lowerByte1 = (byte1 >= 65 && byte1 <= 90) ? byte1 + 32 : byte1
+            let lowerByte2 = (byte2 >= 65 && byte2 <= 90) ? byte2 + 32 : byte2
+            if lowerByte1 != lowerByte2 {
+                return false
+            }
+        }
+        return true
+    }
+    
+    func caseInsensitiveCompare<T: Collection>(_ other: T) -> ComparisonResult where T.Element == UInt8 {
+//    func caseInsensitiveCompare(_ other: [UInt8]) -> ComparisonResult {
+        for (byte1, byte2) in zip(self.lazy, other.lazy) {
+            let lower1 = (byte1 >= 65 && byte1 <= 90) ? byte1 + 32 : byte1
+            let lower2 = (byte2 >= 65 && byte2 <= 90) ? byte2 + 32 : byte2
+            if lower1 < lower2 { return .orderedAscending }
+            if lower1 > lower2 { return .orderedDescending }
+        }
+        return self.count < other.count ? .orderedAscending : (self.count > other.count ? .orderedDescending : .orderedSame)
+    }
+}
+
+// TODO: Use @retroactive once supported on Ubuntu (?)
+//extension ArraySlice: @retroactive Comparable where Element == UInt8 {
+extension ArraySlice: Comparable where Element == UInt8 {
+    public static func < (lhs: ArraySlice<UInt8>, rhs: ArraySlice<UInt8>) -> Bool {
+//    public static func < (lhs: [UInt8], rhs: [UInt8]) -> Bool {
+        for (byte1, byte2) in zip(lhs, rhs) {
+            if byte1 < byte2 {
+                return true
+            } else if byte1 > byte2 {
+                return false
+            }
+        }
+        return lhs.count < rhs.count
+    }
+    
+    func equals(_ string: String) -> Bool {
+        return self == string.utf8Array[...]
+    }
+    
+    func equals(_ string: ArraySlice<UInt8>) -> Bool {
+        return self == string
+    }
+
+    func toInt(radix: Int) -> Int? {
+        if let string = String(bytes: self, encoding: .utf8) {
+            return Int(string, radix: radix)
+        }
+        return nil
+    }
+}
+
+extension String {
+    @inline(__always)
+    public var utf8Array: [UInt8] {
+        return Array(self.utf8)
+    }
+    
+    @inline(__always)
+    public var utf8ArraySlice: ArraySlice<UInt8> {
+        return ArraySlice(self.utf8)
+    }
+
+    @inline(__always)
+    func equals(_ string: [UInt8]?) -> Bool {
+        return self.utf8Array == string
+    }
+    
+    @inline(__always)
 	subscript (i: Int) -> Character {
         return self[self.index(self.startIndex, offsetBy: i)]
     }
 
+    @inline(__always)
 	subscript (i: Int) -> String {
         return String(self[i] as Character)
     }
@@ -81,11 +282,11 @@ extension String {
         return self.indexOf(substring, 0)
     }
 
-    func trim() -> String {
+    public func trim() -> String {
         // trimmingCharacters() in the stdlib is not very efficiently
         // implemented, perhaps because it always creates a new string.
         // Avoid actually calling it if it's not needed.
-        guard count > 0 else { return self }
+        guard !isEmpty else { return self }
         let (firstChar, lastChar) = (first!, last!)
         if firstChar.isWhitespace || lastChar.isWhitespace || firstChar == "\n" || lastChar == "\n" {
             return trimmingCharacters(in: .whitespacesAndNewlines)
@@ -94,12 +295,13 @@ extension String {
     }
 
     func equalsIgnoreCase(string: String?) -> Bool {
-        if let string = string {
+        if let string {
             return caseInsensitiveCompare(string) == .orderedSame
         }
         return false
     }
 
+    @inlinable
     static func toHexString(n: Int) -> String {
         return String(format: "%2x", n)
     }
@@ -112,6 +314,10 @@ extension String {
         return self[i] as Character
     }
 
+    func utf8ByteAt(_ i: Int) -> UInt8 {
+      return self.utf8Array[i]
+    }
+
 	func substring(_ beginIndex: Int) -> String {
         return String.split(self, beginIndex, self.count-beginIndex)
     }
@@ -120,8 +326,13 @@ extension String {
         return String.split(self, beginIndex, count)
     }
 
-    func regionMatches(ignoreCase: Bool, selfOffset: Int,
-                       other: String, otherOffset: Int, targetLength: Int ) -> Bool {
+    func regionMatches(
+        ignoreCase: Bool,
+        selfOffset: Int,
+        other: String,
+        otherOffset: Int,
+        targetLength: Int
+    ) -> Bool {
         if ((otherOffset < 0) || (selfOffset < 0)
             || (selfOffset > self.count - targetLength)
             || (otherOffset > other.count - targetLength)) {
@@ -129,16 +340,14 @@ extension String {
         }
 
         for i in 0..<targetLength {
-            let charSelf: Character = self[i+selfOffset]
-            let charOther: Character = other[i+otherOffset]
-            if(ignoreCase) {
-                if(charSelf.lowercase != charOther.lowercase) {
+            let charSelf: Character = self[i + selfOffset]
+            let charOther: Character = other[i + otherOffset]
+            if ignoreCase {
+                if charSelf.lowercase != charOther.lowercase {
                     return false
                 }
-            } else {
-                if(charSelf != charOther) {
-                    return false
-                }
+            } else if charSelf != charOther {
+                return false
             }
         }
         return true
@@ -149,9 +358,9 @@ extension String {
             return false
         }
         for i in 0..<input.count {
-            let charSelf: Character = self[i+offset]
+            let charSelf: Character = self[i + offset]
             let charOther: Character = input[i]
-            if(charSelf != charOther) {return false}
+            if charSelf != charOther { return false }
         }
         return true
     }
@@ -182,8 +391,18 @@ extension String {
 }
 
 extension String.Encoding {
-	func canEncode(_ string: String) -> Bool {
-		return  string.cString(using: self) != nil
+    func canEncode(_ c: UnicodeScalar) -> Bool {
+        switch self {
+        case .ascii:
+            return c.value < 0x80
+        case .utf8:
+            return c.value <= 0x10FFFF
+            //return true // real is:!(Character.isLowSurrogate(c) || Character.isHighSurrogate(c)) - but already check above (?)
+        case .utf16:
+            return c.value <= 0x10FFFF
+        default:
+            return String(Character(c)).cString(using: self) != nil
+        }
 	}
 
     public func displayName() -> String {
@@ -213,6 +432,52 @@ extension String.Encoding {
             case String.Encoding.utf32LittleEndian: return "UTF-32LE"
         default:
             return self.description
+        }
+    }
+
+    /// Errors that are thrown when a ``String.Encoding`` fails to be represented as a MIME type.
+    public enum EncodingMIMETypeError: Error, LocalizedError {
+        /// There is no IANA equivalent of the provided string encoding.
+        case noIANAEquivalent(String.Encoding)
+
+        /// Returns a human-readable representation of this error.
+        public var errorDescription: String? {
+            switch self {
+            case .noIANAEquivalent(let encoding):
+                return String("There is no IANA equivalent for \(encoding)")
+            }
+        }
+    }
+
+    /// Returns the encoding as an equivalent IANA MIME name.
+    ///
+    /// - SeeAlso: https://www.iana.org/assignments/character-sets/character-sets.xhtml
+    /// - Throws: EncodingMIMETypeError if there is no IANA-compatible MIME name.
+    public func mimeName() throws -> String {
+        switch self {
+            case .ascii: return "US-ASCII"
+            case .nextstep: throw EncodingMIMETypeError.noIANAEquivalent(self)
+            case .japaneseEUC: return "EUC-JP"
+            case .utf8: return "UTF-8"
+            case .isoLatin1: return "csISOLatin1"
+            case .symbol: throw EncodingMIMETypeError.noIANAEquivalent(self)
+            case .nonLossyASCII: return "US-ASCII"
+            case .shiftJIS: return "Shift_JIS"
+            case .isoLatin2: return "csISOLatin2"
+            case .windowsCP1251: return "windows-1251"
+            case .windowsCP1252: return "windows-1252"
+            case .windowsCP1253: return "windows-1253"
+            case .windowsCP1254: return "windows-1254"
+            case .windowsCP1250: return "windows-1250"
+            case .iso2022JP: return "csISO2022JP"
+            case .macOSRoman: throw EncodingMIMETypeError.noIANAEquivalent(self)
+            case .utf16: return "UTF-16"
+            case .utf16BigEndian: return "UTF-16BE"
+            case .utf16LittleEndian: return "UTF-16LE"
+            case .utf32: return "UTF-32"
+            case .utf32BigEndian: return "UTF-32BE"
+            case .utf32LittleEndian: return "UTF-32LE"
+            default: throw EncodingMIMETypeError.noIANAEquivalent(self)
         }
     }
 }

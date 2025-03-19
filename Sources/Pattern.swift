@@ -3,7 +3,6 @@
 //  SwifSoup
 //
 //  Created by Nabil Chatbi on 08/10/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
@@ -23,7 +22,7 @@ public struct Pattern {
         return Pattern(s)
     }
 
-    public func validate()throws {
+    public func validate() throws {
          _ = try NSRegularExpression(pattern: self.pattern, options: [])
     }
 

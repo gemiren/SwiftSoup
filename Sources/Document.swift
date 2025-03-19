@@ -3,7 +3,6 @@
 //  SwifSoup
 //
 //  Created by Nabil Chatbi on 29/09/16.
-//  Copyright © 2016 Nabil Chatbi.. All rights reserved.
 //
 
 import Foundation
@@ -15,7 +14,7 @@ open class Document: Element {
 
     private var _outputSettings: OutputSettings  = OutputSettings()
     private var _quirksMode: Document.QuirksMode = QuirksMode.noQuirks
-    private let _location: String
+    private let _location: [UInt8]
     private var updateMetaCharset: Bool = false
 
     /**
@@ -24,9 +23,14 @@ open class Document: Element {
      @see SwiftSoup#parse
      @see #createShell
      */
+    public init(_ baseUri: [UInt8]) {
+        _location = baseUri
+        super.init(try! Tag.valueOf(UTF8Arrays.hashRoot, ParseSettings.htmlDefault), baseUri)
+    }
+    
     public init(_ baseUri: String) {
-        self._location = baseUri
-        super.init(try! Tag.valueOf("#root", ParseSettings.htmlDefault), baseUri)
+        _location = baseUri.utf8Array
+        super.init(try! Tag.valueOf(UTF8Arrays.hashRoot, ParseSettings.htmlDefault), _location)
     }
 
     /**
@@ -35,11 +39,15 @@ open class Document: Element {
      @return document with html, head, and body elements.
      */
     static public func createShell(_ baseUri: String) -> Document {
+        createShell(baseUri.utf8Array)
+    }
+    
+    static public func createShell(_ baseUri: [UInt8]) -> Document {
         let doc: Document = Document(baseUri)
         let html: Element = try! doc.appendElement("html")
         try! html.appendElement("head")
         try! html.appendElement("body")
-
+        
         return doc
     }
 
@@ -49,7 +57,7 @@ open class Document: Element {
      * @return location
      */
     public func location() -> String {
-    return _location
+        return String(decoding: _location, as: UTF8.self)
     }
 
     /**
@@ -57,7 +65,7 @@ open class Document: Element {
      @return {@code head}
      */
     public func head() -> Element? {
-        return findFirstElementByTagName("head", self)
+        return findFirstElementByTagName(UTF8Arrays.head, self)
     }
 
     /**
@@ -65,7 +73,7 @@ open class Document: Element {
      @return {@code body}
      */
     public func body() -> Element? {
-        return findFirstElementByTagName("body", self)
+        return findFirstElementByTagName(UTF8Arrays.body, self)
     }
 
     /**
@@ -97,8 +105,8 @@ open class Document: Element {
      @param tagName element tag name (e.g. {@code a})
      @return new element
      */
-    public func createElement(_ tagName: String)throws->Element {
-        return try Element(Tag.valueOf(tagName, ParseSettings.preserveCase), self.getBaseUri())
+    public func createElement(_ tagName: String) throws -> Element {
+        return try Element(Tag.valueOf(tagName.utf8Array, ParseSettings.preserveCase), self.getBaseUriUTF8())
     }
 
     /**
@@ -107,18 +115,18 @@ open class Document: Element {
      @return this document after normalisation
      */
     @discardableResult
-    public func normalise()throws->Document {
-        var htmlE: Element? = findFirstElementByTagName("html", self)
+    public func normalise() throws -> Document {
+        var htmlE: Element? = findFirstElementByTagName(UTF8Arrays.html, self)
         if (htmlE == nil) {
-            htmlE = try appendElement("html")
+            htmlE = try appendElement(UTF8Arrays.html)
         }
         let htmlEl: Element = htmlE!
 
         if (head() == nil) {
-            try htmlEl.prependElement("head")
+            try htmlEl.prependElement(UTF8Arrays.head)
         }
         if (body() == nil) {
-            try htmlEl.appendElement("body")
+            try htmlEl.appendElement(UTF8Arrays.body)
         }
 
         // pull text nodes out of root, html, and head els, and push into body. non-text nodes are already taken care
@@ -127,8 +135,8 @@ open class Document: Element {
         try normaliseTextNodes(htmlEl)
         try normaliseTextNodes(self)
 
-        try normaliseStructure("head", htmlEl)
-        try normaliseStructure("body", htmlEl)
+        try normaliseStructure(UTF8Arrays.head, htmlEl)
+        try normaliseStructure(UTF8Arrays.body, htmlEl)
 
         try ensureMetaCharsetElement()
 
@@ -136,7 +144,7 @@ open class Document: Element {
     }
 
     // does not recurse.
-    private func normaliseTextNodes(_ element: Element)throws {
+    private func normaliseTextNodes(_ element: Element) throws {
         var toMove: Array<Node> =  Array<Node>()
         for node: Node in element.childNodes {
             if let tn = (node as? TextNode) {
@@ -149,13 +157,13 @@ open class Document: Element {
         for i in (0..<toMove.count).reversed() {
             let node: Node = toMove[i]
             try element.removeChild(node)
-            try body()?.prependChild(TextNode(" ", ""))
+            try body()?.prependChild(TextNode(UTF8Arrays.whitespace, []))
             try body()?.prependChild(node)
         }
     }
 
     // merge multiple <head> or <body> contents into one, delete the remainder, and ensure they are owned by <html>
-    private func normaliseStructure(_ tag: String, _ htmlEl: Element)throws {
+    private func normaliseStructure(_ tag: [UInt8], _ htmlEl: Element) throws {
         let elements: Elements = try self.getElementsByTag(tag)
         let master: Element? = elements.first() // will always be available as created above if not existent
         if (elements.size() > 1) { // dupes, move contents to master
@@ -179,8 +187,8 @@ open class Document: Element {
     }
 
     // fast method to get first by tag name, used for html, head, body finders
-    private func findFirstElementByTagName(_ tag: String, _ node: Node) -> Element? {
-        if (node.nodeName()==tag) {
+    private func findFirstElementByTagName(_ tag: [UInt8], _ node: Node) -> Element? {
+        if (node.nodeNameUTF8() == tag) {
             return node as? Element
         } else {
             for child: Node in node.childNodes {
@@ -193,7 +201,7 @@ open class Document: Element {
         return nil
     }
 
-    open override func outerHtml()throws->String {
+    open override func outerHtml() throws -> String {
         return try super.html() // no outer wrapper tag
     }
 
@@ -203,13 +211,17 @@ open class Document: Element {
      @return this document
      */
     @discardableResult
-    public override func text(_ text: String)throws->Element {
+    public override func text(_ text: String) throws -> Element {
         try body()?.text(text) // overridden to not nuke doc structure
         return self
     }
 
-    open override func nodeName() -> String {
-    return "#document"
+    public override func nodeNameUTF8() -> [UInt8] {
+        return nodeName().utf8Array
+    }
+    
+    public override func nodeName() -> String {
+        return "#document"
     }
 
     /**
@@ -302,7 +314,7 @@ open class Document: Element {
      * <li><b>Xml:</b> <i>&lt;?xml version="1.0" encoding="CHARSET"&gt;</i></li>
      * </ul>
      */
-    private func ensureMetaCharsetElement()throws {
+    private func ensureMetaCharsetElement() throws {
         if (updateMetaCharset) {
             let syntax: OutputSettings.Syntax = outputSettings().syntax()
 
@@ -329,23 +341,23 @@ open class Document: Element {
                 if let decl = (node as? XmlDeclaration) {
 
                     if (decl.name()=="xml") {
-                        try decl.attr("encoding", charset().displayName())
+                        try decl.attr("encoding".utf8Array, charset().displayName().utf8Array)
 
-                        _ = try  decl.attr("version")
-                        try decl.attr("version", "1.0")
+                        _ = try  decl.attr("version".utf8Array)
+                        try decl.attr("version".utf8Array, "1.0".utf8Array)
                     } else {
                         try Validate.notNull(obj: baseUri)
-                        let decl = XmlDeclaration("xml", baseUri!, false)
-                        try decl.attr("version", "1.0")
-                        try decl.attr("encoding", charset().displayName())
+                        let decl = XmlDeclaration("xml".utf8Array, baseUri!, false)
+                        try decl.attr("version".utf8Array, "1.0".utf8Array)
+                        try decl.attr("encoding".utf8Array, charset().displayName().utf8Array)
 
                         try prependChild(decl)
                     }
                 } else {
                     try Validate.notNull(obj: baseUri)
-                    let decl = XmlDeclaration("xml", baseUri!, false)
-                    try decl.attr("version", "1.0")
-                    try decl.attr("encoding", charset().displayName())
+                    let decl = XmlDeclaration("xml".utf8Array, baseUri!, false)
+                    try decl.attr("version".utf8Array, "1.0".utf8Array)
+                    try decl.attr("encoding".utf8Array, charset().displayName().utf8Array)
 
                     try prependChild(decl)
                 }
@@ -408,8 +420,10 @@ public class OutputSettings: NSCopying {
      */
     public enum Syntax {case html, xml}
 
-    private var _escapeMode: Entities.EscapeMode  = Entities.EscapeMode.base
-    private var _encoder: String.Encoding = String.Encoding.utf8 // Charset.forName("UTF-8")
+    @usableFromInline
+    internal var _escapeMode: Entities.EscapeMode  = Entities.EscapeMode.base
+    @usableFromInline
+    internal var _encoder: String.Encoding = String.Encoding.utf8 // Charset.forName("UTF-8")
     private var _prettyPrint: Bool = true
     private var _outline: Bool = false
     private var _indentAmount: UInt  = 1
@@ -425,6 +439,7 @@ public class OutputSettings: NSCopying {
      * The default escape mode is <code>base</code>.
      * @return the document's current escape mode
      */
+    @inlinable
     public func escapeMode() -> Entities.EscapeMode {
         return _escapeMode
     }
@@ -436,6 +451,7 @@ public class OutputSettings: NSCopying {
      * @return the document's output settings, for chaining
      */
     @discardableResult
+    @inlinable
     public func escapeMode(_ escapeMode: Entities.EscapeMode) -> OutputSettings {
         self._escapeMode = escapeMode
         return self
@@ -449,9 +465,11 @@ public class OutputSettings: NSCopying {
      * input charset. Otherwise, it defaults to UTF-8.
      * @return the document's current charset.
      */
+    @inlinable
     public func encoder() -> String.Encoding {
         return _encoder
     }
+    @inlinable
     public func charset() -> String.Encoding {
         return _encoder
     }
